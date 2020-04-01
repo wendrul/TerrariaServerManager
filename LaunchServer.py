@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import subprocess
 import shutil
+import mimetypes
 from colorama import Fore, Style
 
 def GetUserInfo():
@@ -129,23 +130,32 @@ def eraseToken(DRIVE, serverHostToken, tokenId):
         print("%s Error erasing token, please contact Wendril-san %s" % ({Fore.RED}, {Style.RESET_ALL}) )
     return
 
-def main(mapFileName):
+def pushNewSaveFile(DRIVE, mapFileName, mapFile):
+    mimetypes.add_type("application/octet-stream", ".wld")
+    file_metadata = {'name': os.path.split(mapFileName)[1], "mimeType" : "application/octet-stream"}
+    upload = DRIVE.files().create(body=file_metadata, media_body=mapFileName, fields='id').execute()
+    print("Succesfully saved new ma p")
+   
+
+def main():
     DRIVE = GetCredentialsAndClient()
     user_info = GetUserInfo()
-    mapFile = DRIVE.files().list(q = "name = '{fileName}'".format(fileName = mapFileName)).execute().get('files', [])
+    with open("path.txt", 'r') as f:
+        mapFileName = f.readlines()[0]
+    mapFile = DRIVE.files().list(q = "name = '{fileName}'".format(fileName = os.path.split(mapFileName)[0])).execute().get('files', [])
     conflictErrorHandling(mapFile, mapFileName)
     pullSaveFile(mapFile[0], DRIVE, user_info, mapFileName)
     serverTokenFileName = "server_hosting_token.json"
-
+    
     tokenId = createServerRunningToken(DRIVE, user_info, serverTokenFileName)
     createBackup(mapFile[0], user_info, DRIVE)
-    print ("Starting up server on ip: %s" % user_info['ip'])
+    print ("\nStarting up server on ip: %s\n" % user_info['ip'])
     subprocess.call("TerrariaServer.exe")
-    print ("Server shutdown succesfully, uploading new world")
-    #pushNewSaveFile()
+    print ("\nServer shutdown succesfully, uploading new world")
+    pushNewSaveFile(DRIVE, mapFileName, mapFile[0])
     eraseToken(DRIVE, serverTokenFileName, tokenId)
     createLocalBackup("%s.wld" % os.path.splitext(mapFileName)[0], user_info, "OnServerClose")
     createBackup(mapFile[0], user_info, DRIVE)
     pressEnterToQuit()
 
-main('Steins--Gate.wld')
+main()
