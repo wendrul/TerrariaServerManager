@@ -4,4 +4,7 @@ user_info.json
 .OnServerClose-Steins--Gate.wld.wbku
 .beforeServerStart-Steins--Gate.wld.wbku
 build/
+dist/
+__pycache__/
 setup.py
+*.spec

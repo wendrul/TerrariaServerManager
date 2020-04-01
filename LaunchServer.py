@@ -8,23 +8,25 @@ import subprocess
 import shutil
 import mimetypes
 from colorama import Fore, Style
+from requests import get
+
 
 def GetUserInfo():
     now = datetime.now()
     if (not os.path.exists('user_info.json')):
         user_name = str(input("Who are you?\n"))
+        ip = get('https://api.ipify.org').text
         user_info = {
             "name": user_name,
             "lastHosted": now.strftime("%d/%m/%Y, %H:%M:%S"),
             "stopHostTime": now.strftime("%d/%m/%Y, %H:%M:%S"),
-            "ip" : "null"
+            "ip" : "{ip}".format(ip = ip)
         }
     else:
         with open('user_info.json', 'r') as openfile: 
             user_info = json.load(openfile)
         user_info['lastHosted'] = now.strftime("%d/%m/%Y, %H:%M:%S")
         user_info['stopHostTime'] = now.strftime("%d/%m/%Y, %H:%M:%S")
-    #does not update dates of last and stop host
     with open("user_info.json", "w") as outfile: 
         outfile.write(json.dumps(user_info, indent = 4))
     datutito = ['Daniel', 'daniel', 'The210', 'th210', '210', 'datuten', 'datutito', 'tuten']
@@ -124,38 +126,66 @@ def createServerRunningToken(DRIVE, user_info, serverHostToken):
 
 def eraseToken(DRIVE, serverHostToken, tokenId):
     deletion = DRIVE.files().delete(fileId = tokenId).execute()
-    if (deletion):
-        print("Succesfully erased token")
-    else:
-        print("%s Error erasing token, please contact Wendril-san %s" % ({Fore.RED}, {Style.RESET_ALL}) )
-    return
+    print("Succesfully erased token")
 
 def pushNewSaveFile(DRIVE, mapFileName, mapFile):
     mimetypes.add_type("application/octet-stream", ".wld")
-    file_metadata = {'name': os.path.split(mapFileName)[1], "mimeType" : "application/octet-stream"}
+    file_metadata = {'name': os.path.split(mapFileName)[1], "mimeType" : "application/octet-stream", "parents" : mapFile['parents']}
+    DRIVE.files().delete(fileId = mapFile['id']).execute()
     upload = DRIVE.files().create(body=file_metadata, media_body=mapFileName, fields='id').execute()
-    print("Succesfully saved new ma p")
+    print("Deleted old save file")
+    print("Succesfully saved new map")
+    return upload
    
+def addLog(DRIVE, user_info):
+    logFolder = DRIVE.files().list(q = "name = 'Logs'").execute().get('files', [])
+    if (len(logFolder) == 0):
+        file_metadata = {
+            'name': 'Logs',
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        logFolder = DRIVE.files().create(body = file_metadata).execute()
+        if logFolder:
+            print("Backup folder created")
+    else:
+        logFolder = logFolder[0]
+    file_metadata = {
+        'name': "{name}.json".format(name = user_info['name']),
+        'parents' : [logFolder['id']]
+    }
+    oldLog = DRIVE.files().list(q = "name = '{name}.json'".format(name = user_info['name'])).execute().get('files', [])
+    if oldLog:
+        DRIVE.files().delete(fileId = oldLog[0]['id']).execute()
+    DRIVE.files().create(body = file_metadata, media_body = "user_info.json", fields = 'id').execute()
+    print ("Created a log for this session")
 
 def main():
+    print("Getting credentials...")
     DRIVE = GetCredentialsAndClient()
+    print("Acquired API Client")
     user_info = GetUserInfo()
     with open("path.txt", 'r') as f:
         mapFileName = f.readlines()[0]
-    mapFile = DRIVE.files().list(q = "name = '{fileName}'".format(fileName = os.path.split(mapFileName)[0])).execute().get('files', [])
+    print("Seeking save file...")
+    mapFile = DRIVE.files().list(q = "name = '{fileName}'".format(fileName = os.path.split(mapFileName)[1]), fields = '*').execute().get('files', [])
+    print("Found file!")
     conflictErrorHandling(mapFile, mapFileName)
     pullSaveFile(mapFile[0], DRIVE, user_info, mapFileName)
-    serverTokenFileName = "server_hosting_token.json"
-    
+    print("Downloaded save file succesfully")
+    serverTokenFileName = "server_hosting_token.json" 
+    print("Creating token for this session")
     tokenId = createServerRunningToken(DRIVE, user_info, serverTokenFileName)
     createBackup(mapFile[0], user_info, DRIVE)
     print ("\nStarting up server on ip: %s\n" % user_info['ip'])
     subprocess.call("TerrariaServer.exe")
-    print ("\nServer shutdown succesfully, uploading new world")
-    pushNewSaveFile(DRIVE, mapFileName, mapFile[0])
+    print ("\nServer shutdown succesfully, uploading new world (DO NOT CLOSE yet, plz)")
+    now = datetime.now()
+    user_info['stopHostTime'] = now.strftime("%d/%m/%Y, %H:%M:%S")
+    newSave = pushNewSaveFile(DRIVE, mapFileName, mapFile[0])
+    addLog(DRIVE, user_info)
     eraseToken(DRIVE, serverTokenFileName, tokenId)
     createLocalBackup("%s.wld" % os.path.splitext(mapFileName)[0], user_info, "OnServerClose")
-    createBackup(mapFile[0], user_info, DRIVE)
+    createBackup(newSave, user_info, DRIVE)
     pressEnterToQuit()
 
 main()
