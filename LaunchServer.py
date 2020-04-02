@@ -29,9 +29,15 @@ def GetUserInfo():
         user_info['stopHostTime'] = now.strftime("%d/%m/%Y, %H:%M:%S")
     with open("user_info.json", "w") as outfile: 
         outfile.write(json.dumps(user_info, indent = 4))
-    datutito = ['Daniel', 'daniel', 'The210', 'th210', '210', 'datuten', 'datutito', 'tuten']
+    datutito = ['Daniel', 'daniel', 'The210', 'the210', '210', 'datuten', 'datutito', 'tuten']
     if user_info['name'] in datutito:
         print("How is it going datutito?")
+    hapopy = ['Bruno', 'Hapopy', 'hapopy', 'hhaappyy']
+    if user_info['name'] in hapopy:
+        print("Welcome back master of `La Parca`, we were expecting you...")
+    andre = ['Lanithril', 'Andre', 'AE', 'Emile', 'andre', 'lanithril', 'andre emile']
+    if user_info['name'] in andre:
+        print("Welcome guider of `Jon Snow`, I see you came here for some solo action... Maybe the other noobs are not connected, it's better like this either way, don't you think?")
     return user_info
 
 def GetCredentialsAndClient():
@@ -191,6 +197,8 @@ def main():
     print ("\nServer shutdown succesfully, uploading new world (DO NOT CLOSE yet, plz)")
     now = datetime.now()
     user_info['stopHostTime'] = now.strftime("%d/%m/%Y, %H:%M:%S")
+    with open("user_info.json", "w") as outfile: 
+        outfile.write(json.dumps(user_info, indent = 4))
     newSave = pushNewSaveFile(DRIVE, mapFileName, mapFile[0])
     addLog(DRIVE, user_info)
     eraseToken(DRIVE, serverTokenFileName, tokenId)
