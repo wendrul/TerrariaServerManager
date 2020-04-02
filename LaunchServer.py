@@ -82,14 +82,14 @@ def createLocalBackup(filename, user_info, info):
     if (os.path.exists(backupName)):
         os.remove(backupName)
     shutil.copyfile(filename, backupName)
-    os.remove(filename)
 
 def pullSaveFile(mapFile, DRIVE, user_info, mapFileName):
     data = DRIVE.files().get_media(fileId = mapFile['id']).execute()
     if (data):
         fn = "%s.wld" % os.path.splitext(mapFileName)[0]
         if (os.path.exists(fn)):
-            createLocalBackup(fn, user_info, "beforeServerStart")
+            createLocalBackup(fn, user_info, "OnServerLaunch")
+            os.remove(fn)
         with open(fn, 'wb') as fh:
             fh.write(data)
     return
@@ -136,7 +136,11 @@ def pushNewSaveFile(DRIVE, mapFileName, mapFile):
     print("Deleted old save file")
     print("Succesfully saved new map")
     return upload
-   
+
+def EnterToContinue(str):
+    print(str)
+    input()
+
 def addLog(DRIVE, user_info):
     logFolder = DRIVE.files().list(q = "name = 'Logs'").execute().get('files', [])
     if (len(logFolder) == 0):
@@ -166,6 +170,12 @@ def main():
     user_info = GetUserInfo()
     with open("path.txt", 'r') as f:
         mapFileName = f.readlines()[0]
+    if (not os.path.exists(mapFileName)):
+        print("The file does not exist in your computer")
+        print("Continuing will write a file `%s` into `%s`, would you like to continue? (y/n)" % (os.path.split(mapFileName)[1], os.path.split(mapFileName)[0]))
+        ans = input()
+        if (not(ans == 'y' or ans == 'Y')):
+            pressEnterToQuit()
     print("Seeking save file...")
     mapFile = DRIVE.files().list(q = "name = '{fileName}'".format(fileName = os.path.split(mapFileName)[1]), fields = '*').execute().get('files', [])
     print("Found file!")
@@ -182,7 +192,9 @@ def main():
     now = datetime.now()
     user_info['stopHostTime'] = now.strftime("%d/%m/%Y, %H:%M:%S")
     newSave = pushNewSaveFile(DRIVE, mapFileName, mapFile[0])
+    EnterToContinue("after pushnew")
     addLog(DRIVE, user_info)
+    EnterToContinue("afteradd log")
     eraseToken(DRIVE, serverTokenFileName, tokenId)
     createLocalBackup("%s.wld" % os.path.splitext(mapFileName)[0], user_info, "OnServerClose")
     createBackup(newSave, user_info, DRIVE)
